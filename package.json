@@ -23,7 +23,7 @@
   "dependencies": {
     "ajv": "^8.11.0",
     "ajv-formats": "^2.1.1",
-    "image-hash": "^5.3.1",
+    "image-hash": "^7.0.1",
     "lodash": "^4.17.21",
     "shelljs": "^0.8.5",
     "yargs": "^17.6.2"
