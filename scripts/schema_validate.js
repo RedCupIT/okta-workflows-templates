@@ -1,12 +1,15 @@
 const Ajv = require('ajv').default;
 const addFormats = require('ajv-formats');
-const shell = require('shelljs')
+const { execFileSync } = require('child_process');
+const path = require('path');
 
 // Fetch the JSON content for schema
 let baseDir = process.cwd();
 let branchName;
 let prWorkFlowJSONFiles;
 const workflowSchema = require('./workflow-schema.json');
+
+const SAFE_REF_PATTERN = /^[a-zA-Z0-9._\-\/]+$/;
 
 // Process PR files with only filter workflows/*/*.json
 function processPRFiles() {
@@ -17,7 +20,7 @@ function processPRFiles() {
   const validate = ajv.compile(workflowSchema);
   fileArr.forEach(file => {
     console.log (`processing file ${file}`);
-    const filePath = require(baseDir+"/"+file);
+    const filePath = require(path.resolve(baseDir, file));
     const valid = validate(filePath);
     if (!valid)  {
       console.log(validate.errors);
@@ -32,7 +35,7 @@ function processPRFiles() {
 function processArgsAndInitializeVals() {
   if (process.argv.length > 2) {
     console.log('Using ref from command line argument');
-    branchName = process.argv.slice(2);
+    branchName = process.argv[2];
     console.log(`Testing for git branch  ${branchName}`);
   } else if (process.env.CIRCLECI) {
     console.log('Running in CircleCI config');
@@ -42,7 +45,17 @@ function processArgsAndInitializeVals() {
     branchName = "HEAD"
   }
 
-  prWorkFlowJSONFiles = shell.exec(`git diff --name-only ${branchName}..master -- \'workflows/*/*.json\'`).replace(/\n/g, ' ');
+  if (!SAFE_REF_PATTERN.test(branchName)) {
+    console.error(`Invalid git ref: ${branchName}`);
+    process.exit(1);
+  }
+
+  const diffOutput = execFileSync(
+    'git',
+    ['diff', '--name-only', `${branchName}..master`, '--', 'workflows/*/*.json'],
+    { encoding: 'utf8' }
+  );
+  prWorkFlowJSONFiles = diffOutput.replace(/\n/g, ' ');
 }
 
 processArgsAndInitializeVals();
